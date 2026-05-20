@@ -1,0 +1,89 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="MainWindow.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="NodeOptions.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="DrawCore.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="FloatCircularBuffer.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessCore.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessOptions.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="Vector2.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="VectorPool.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="MainWindow.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="NodeOptions.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="FloatCircularBuffer.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="DrawCore.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="pixelShader.h">
+      <Filter>Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="vertexShader.h">
+      <Filter>Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessCore.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessOptions.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="Vector2.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="VectorPool.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+    <None Include="Def.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="$(MSBuildThisFileDirectory)..\..\natvis\wil.natvis" />
+    <Natvis Include="$(MSBuildThisFileDirectory)..\..\natvis\wil.natstepfilter" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{aebee4a3-d85c-489e-9d2a-e0628e9b748e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Models">
+      <UniqueIdentifier>{1fabf1c5-0f40-4eda-8a18-961cc529490f}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
