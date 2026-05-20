@@ -6,12 +6,16 @@ using namespace std::chrono_literals;
 MainWindow::MainWindow(UINT width, UINT height, NodeOptions const& _nodeOptions, ProcessOptions const& _processOptions) :
     nodeOptions(_nodeOptions), processOptions(_processOptions)
 {
-    WNDCLASSW wc
+    HMODULE hInstance = GetModuleHandleW(NULL);
+    WNDCLASSEX wc
     {
+        .cbSize = sizeof(WNDCLASSEX),
         .lpfnWndProc = windowProc,
-        .hInstance = GetModuleHandleW(NULL),
+        .hInstance = hInstance,
+        .hIcon = LoadIconA(hInstance, MAKEINTRESOURCEA(IDI_ICON1)),
         .hbrBackground = NULL,
         .lpszClassName = ClassName(),
+        .hIconSm = (HICON)LoadImageA(hInstance, MAKEINTRESOURCEA(IDI_ICON1), IMAGE_ICON, 16, 16, 0),
     };
 
     DWORD style = WS_MINIMIZEBOX | WS_SYSMENU;
@@ -22,7 +26,7 @@ MainWindow::MainWindow(UINT width, UINT height, NodeOptions const& _nodeOptions,
     width = rect.right - rect.left;
     height = rect.bottom - rect.top;
 
-    RegisterClassW(&wc);
+    RegisterClassExW(&wc);
     hwnd = CreateWindowExW
     (
         WS_EX_TOPMOST | WS_EX_NOREDIRECTIONBITMAP,
@@ -32,7 +36,7 @@ MainWindow::MainWindow(UINT width, UINT height, NodeOptions const& _nodeOptions,
         CW_USEDEFAULT, CW_USEDEFAULT, width, height,
         NULL,
         NULL,
-        GetModuleHandleW(NULL),
+        hInstance,
         this
     );
 }

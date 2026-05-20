@@ -3,6 +3,7 @@
 #include "NodeOptions.h"
 #include "ProcessOptions.h"
 #include "ProcessCore.h"
+#include "resource.h"
 
 struct MainWindow
 {
