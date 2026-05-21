@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "ProcessCore.h"
+#include <iomanip>
 
 #define CheckDeviceLoss(hr, deviceLost) \
 if (FAILED(hr)) \
@@ -24,6 +25,9 @@ ProcessCore::ProcessCore(HWND _hwnd, UINT _width, UINT _height, NodeOptions cons
     SoundIndexRangeExp10 = _processOptions.MaxSoundIndexExp10 - _processOptions.MinSoundIndexExp10;
     processThread = std::thread(&ProcessCore::processWorker, this);
     captureThread = std::thread(&ProcessCore::captureWorker, this);
+#ifdef _DEBUG
+    watchDog = std::thread(&ProcessCore::watchDogWorker, this);
+#endif // _DEBUG
 }
 
 ProcessCore::~ProcessCore()
@@ -33,7 +37,78 @@ ProcessCore::~ProcessCore()
         captureThread.join();
     if (processThread.joinable())
         processThread.join();
+#ifdef _DEBUG
+    if (watchDog.joinable())
+        watchDog.join();
+#endif // _DEBUG
+
 }
+
+#ifdef _DEBUG
+void ProcessCore::watchDogWorker()
+{
+    wil::unique_handle timer{ CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS) };
+    THROW_LAST_ERROR_IF(!timer.is_valid());
+    LARGE_INTEGER dueTime{};
+    dueTime.QuadPart = -1;
+    SetWaitableTimer(timer.get(), &dueTime, 1000, NULL, NULL, FALSE);
+
+    while (running.load(std::memory_order_relaxed))
+    {
+        DWORD waitResult = WaitForSingleObject(timer.get(), INFINITE);
+        THROW_LAST_ERROR_IF(waitResult == WAIT_FAILED);
+
+        UINT a = captureCounter.exchange(0, std::memory_order_acquire);
+        UINT b = captureSampleRate.exchange(0, std::memory_order_acquire);
+        UINT c = processCounter.exchange(0, std::memory_order_acquire);
+        UINT d = processSampleRate.exchange(0, std::memory_order_acquire);
+        watchDogVals[0] += a;
+        watchDogVals[1] += b;
+        watchDogVals[2] += c;
+        watchDogVals[3] += d;
+        watchDogCount += 1;
+        estiBufferLength += b - d;
+        maxBufferLength = max(maxBufferLength, estiBufferLength);
+        std::stringstream ssw;
+        ssw << std::fixed << std::setprecision(3);
+        ssw << "[Debug] Count: " << watchDogCount << std::endl;
+        ssw << "Esti. Buffer Length: " << estiBufferLength << std::endl;
+        ssw << "Max Buffer Length: " << maxBufferLength << std::endl;
+
+        ssw << std::right << std::setw(7) << "Name:" << "  "
+            << std::left << std::setw(16) << "captureCounter"
+            << std::left << std::setw(19) << "captureSampleRate"
+            << std::left << std::setw(16) << "processCounter"
+            << std::left << std::setw(19) << "processSampleRate"
+            << std::endl;
+        ssw << std::right << std::setw(7) << "Value:" << "  "
+            << std::left << std::setw(16) << a
+            << std::left << std::setw(19) << b
+            << std::left << std::setw(16) << c
+            << std::left << std::setw(19) << d
+            << std::endl;
+        ssw << std::right << std::setw(7) << "AvgVal:" << "  "
+            << std::left << std::setw(16) << watchDogVals[0] / (double)watchDogCount
+            << std::left << std::setw(19) << watchDogVals[1] / (double)watchDogCount
+            << std::left << std::setw(16) << watchDogVals[2] / (double)watchDogCount
+            << std::left << std::setw(19) << watchDogVals[3] / (double)watchDogCount
+            << std::endl;
+        ssw << std::endl;
+
+        OutputDebugStringA(ssw.str().c_str());
+
+        if (watchDogCount == 10)
+        {
+            watchDogCount = 0;
+            watchDogVals[0] = 0;
+            watchDogVals[1] = 0;
+            watchDogVals[2] = 0;
+            watchDogVals[3] = 0;
+        }
+    }
+}
+#endif // _DEBUG
+
 
 void ProcessCore::captureWorker()
 {
@@ -81,6 +156,11 @@ void ProcessCore::captureWorker()
             UINT32 nextPacketSize = 0;
             hr = pCapture->GetNextPacketSize(&nextPacketSize);
             CheckDeviceLoss(hr, deviceLost);
+
+#ifdef _DEBUG
+            UINT count = 0;
+#endif // _DEBUG
+
             while (nextPacketSize > 0 && !deviceLost)
             {
                 BYTE* pData = nullptr;
@@ -109,7 +189,16 @@ void ProcessCore::captureWorker()
 
                 hr = pCapture->GetNextPacketSize(&nextPacketSize);
                 CheckDeviceLoss(hr, deviceLost);
+#ifdef _DEBUG
+                count += frames;
+#endif // _DEBUG
             }
+
+#ifdef _DEBUG
+            captureCounter.fetch_add(1, std::memory_order_release);
+            captureSampleRate.fetch_add(count, std::memory_order_release);
+#endif // _DEBUG
+
         }
     }
     catch (std::exception const& ex)
@@ -131,7 +220,7 @@ void ProcessCore::processWorker()
     {
         LARGE_INTEGER t1{}, q{}, dueTime{};
         THROW_LAST_ERROR_IF(!QueryPerformanceFrequency(&q));
-        double QPCInterval = 1.f / q.QuadPart;
+        double QPCInterval = 1.0 / q.QuadPart;
 
         wil::unique_handle timer{ CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS) };
         THROW_LAST_ERROR_IF(!timer.is_valid());
@@ -142,6 +231,7 @@ void ProcessCore::processWorker()
         THROW_LAST_ERROR_IF(!SetWaitableTimer(timer.get(), &dueTime, periodMill, NULL, NULL, FALSE));
         THROW_LAST_ERROR_IF(!QueryPerformanceCounter(&t1));
 
+        UINT32 lostFrameCount = 0;
         while (running.load(std::memory_order_relaxed))
         {
             DWORD waitResult = WaitForSingleObject(timer.get(), INFINITE);
@@ -154,17 +244,19 @@ void ProcessCore::processWorker()
             auto bufferPack = pBufferPack.load(std::memory_order_acquire);
             if (!bufferPack) continue;
 
-            UINT32 frameCount = (UINT32)ceil(bufferPack->SampleRate * realTimeInterval);
+            UINT32 oriFrameCount = (UINT32)ceil(bufferPack->SampleRate * realTimeInterval) + lostFrameCount;
 
             auto pRealSample = floatVecPool.Rent();
             auto& realSample = *pRealSample;
-            realSample.resize(frameCount);
-            frameCount = bufferPack->Buffer.Read(realSample.data(), 0, frameCount);
-            realSample.resize(frameCount);
+            realSample.resize(oriFrameCount);
+            UINT32 readFrameCount = bufferPack->Buffer.Read(realSample.data(), 0, oriFrameCount);
+            lostFrameCount = oriFrameCount - readFrameCount;
+
+            realSample.resize(readFrameCount);
 
             auto pImagSample = floatVecPool.Rent();
             auto& imagSample = *pImagSample;
-            imagSample.resize(frameCount);
+            imagSample.resize(readFrameCount);
 
             std::fill(imagSample.begin(), imagSample.end(), 0);
 
@@ -172,6 +264,10 @@ void ProcessCore::processWorker()
             auto pResult = applyFilterbank(realSample, imagSample, bufferPack->FilterbankMatrix);
 
             drawCore.Draw(*pResult);
+#ifdef _DEBUG
+            processCounter.fetch_add(1, std::memory_order_release);
+            processSampleRate.fetch_add(readFrameCount, std::memory_order_release);
+#endif // _DEBUG
         }
     }
     catch (std::exception const& ex)
@@ -247,7 +343,7 @@ std::vector<float> ProcessCore::initializeFilterbank(DWORD sampleRate) const
     {
         size_t left = fftBinPoints[i - 1];
         size_t mid = fftBinPoints[i];
-        size_t right = fftBinPoints[i + 1]; 
+        size_t right = fftBinPoints[i + 1];
         float height = (left == right) ? 0 : 2.0f / (right - left);
         for (size_t j = left; j < mid; ++j)
             vec[offset + j] = (j - left) / (float)(mid - left) * height;

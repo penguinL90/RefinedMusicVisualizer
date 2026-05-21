@@ -8,8 +8,6 @@
 
 struct ProcessCore
 {
-    
-
     ProcessCore(HWND hwnd, UINT width, UINT height, NodeOptions const& nodeOptions, ProcessOptions const& processOptions);
     ~ProcessCore();
     ProcessCore(const ProcessCore&) = delete;
@@ -40,6 +38,20 @@ private:
     float SoundIndexRangeExp10;
     std::atomic<std::shared_ptr<BufferPack>> pBufferPack;
     std::atomic_bool running = true;
+
+#ifdef _DEBUG
+    std::atomic_uint captureCounter = 0;
+    std::atomic_uint captureSampleRate = 0;
+    std::atomic_uint processCounter = 0;
+    std::atomic_uint processSampleRate = 0;
+
+    UINT watchDogVals[4] = {};
+    UINT watchDogCount = 0;
+    INT estiBufferLength = 0;
+    INT maxBufferLength = 0;
+    std::thread watchDog;
+    void watchDogWorker();
+#endif // _DEBUG
 
     void captureWorker();
     void processWorker();

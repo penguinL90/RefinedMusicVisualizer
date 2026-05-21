@@ -11,6 +11,7 @@ struct FloatCircularBuffer
 
     bool Write(float* source, size_t offset, size_t count);
     size_t Read(float* dest, size_t offset, size_t count);
+    size_t ReadAllOrDrop(float* dest, size_t offset, size_t count);
     size_t DropData(size_t count);
     void DropAll();
     size_t Capacity() const { return _capacity; };

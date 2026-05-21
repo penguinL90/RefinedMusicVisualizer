@@ -73,7 +73,6 @@ void DrawCore::initD3DDevices()
 
 void DrawCore::initShaders()
 {
-
     HRESULT hr = pD3DDevice->CreateVertexShader(
         vsByteCode,
         sizeof(vsByteCode),

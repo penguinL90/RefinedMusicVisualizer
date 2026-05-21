@@ -103,6 +103,17 @@ size_t FloatCircularBuffer::Read(float* dest, size_t offset, size_t count)
     return read;
 }
 
+size_t FloatCircularBuffer::ReadAllOrDrop(float* dest, size_t offset, size_t count)
+{
+    if (count == 0) return 0;
+    size_t writeIndex = _writeIndex.load(std::memory_order_acquire);
+    size_t readIndex = _readIndex.load(std::memory_order_relaxed);
+    size_t read = min(writeIndex - readIndex, count);
+    memcpy(dest + offset, _buffer + (readIndex & _mask), read * sizeof(float));
+    _readIndex.store(writeIndex, std::memory_order_release);
+    return read;
+}
+
 size_t FloatCircularBuffer::DropData(size_t count)
 {
     if (count == 0) return 0;
